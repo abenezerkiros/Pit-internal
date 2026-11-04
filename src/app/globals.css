@@ -7,13 +7,25 @@
   --paper: #f6f5f1;
   --white: #fff;
   --dark: #161b19;
-  font-family: "DM Sans", Arial, sans-serif;
+
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
 }
 * {
   box-sizing: border-box;
+}
+body {
+  font-family: var(--font-body), Arial, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), Georgia, serif;
 }
 body {
   margin: 0;
@@ -44,6 +56,7 @@ a {
 button {
   color: inherit;
 }
+
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--gold);
