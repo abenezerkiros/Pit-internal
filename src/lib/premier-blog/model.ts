@@ -2,6 +2,7 @@ import { z } from "zod";
 export const ALLOWED_EMAILS = [
   "wend@pitdrives.com",
   "abenezer@pitdrives.com",
+  "laraib@pitdrives.com"
 ] as const;
 export function allowedIdentity(
   email: unknown,
