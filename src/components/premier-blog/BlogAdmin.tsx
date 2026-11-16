@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { AuthProvider, useTeam } from "@/components/auth";
 import DraftImage from "./DraftImage";
 import { clientAuth } from "@/lib/firebase-client";
@@ -44,43 +45,86 @@ export default function BlogAdmin() {
     </AuthProvider>
   );
 }
-function LogoutButton({disabled = false, dirty = false}: {disabled?: boolean; dirty?: boolean}) {
-  const {logout} = useTeam();
+function LogoutButton({
+  disabled = false,
+  dirty = false,
+}: {
+  disabled?: boolean;
+  dirty?: boolean;
+}) {
+  const { logout } = useTeam();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   async function handleLogout() {
     if (pending || disabled) return;
-    if (dirty && !window.confirm("Discard your unsaved changes and log out?")) return;
+    if (dirty && !window.confirm("Discard your unsaved changes and log out?"))
+      return;
     setPending(true);
     setMessage("");
-    try { await logout(); }
-    catch { setMessage("Could not log out. Please try again."); setPending(false); }
+    try {
+      await logout();
+    } catch {
+      setMessage("Could not log out. Please try again.");
+      setPending(false);
+    }
   }
-  return <>
-    <button  className={styles.primary} type="button" disabled={pending || disabled} onClick={handleLogout}>
-      {pending ? "Logging out…" : "Log out"}
-    </button>
-    {message && <span role="alert">{message}</span>}
-  </>;
+  return (
+    <>
+      <Link href="/calendar">Calendar</Link>
+      <button
+        className={styles.primary}
+        type="button"
+        disabled={pending || disabled}
+        onClick={handleLogout}
+      >
+        {pending ? "Logging out…" : "Log out"}
+      </button>
+      {message && <span role="alert">{message}</span>}
+    </>
+  );
 }
 function Gate() {
   const { user, loading, login, error } = useTeam();
   const [opening, setOpening] = useState(false);
-  if (loading || !user || !ALLOWED_EMAILS.some(email => email === user.email.toLowerCase())) {
+  if (
+    loading ||
+    !user ||
+    !ALLOWED_EMAILS.some((email) => email === user.email.toLowerCase())
+  ) {
     return (
       <main className={styles.login}>
         <div className={styles.loginCard}>
           <p className={styles.eyebrow}>Premier International Transportation</p>
-          <h1>The Journal<br /><span>Editorial desk.</span></h1>
-          <p>{user && !loading ? "Your account has access to bookings only." : "Write, refine, and publish stories from Premier."}</p>
-          {loading ? <p role="status">Checking team access…</p> : !user && (
-            <button type="button" className={styles.primary} disabled={opening}
-              onClick={async () => {
-                setOpening(true);
-                try { await login(); } finally { setOpening(false); }
-              }}>
-              {opening ? "Signing in…" : "Continue with Google"}
-            </button>
+          <h1>
+            The Journal
+            <br />
+            <span>Editorial desk.</span>
+          </h1>
+          <p>
+            {user && !loading
+              ? "Your account has access to bookings only."
+              : "Write, refine, and publish stories from Premier."}
+          </p>
+          {loading ? (
+            <p role="status">Checking team access…</p>
+          ) : (
+            !user && (
+              <button
+                type="button"
+                className={styles.primary}
+                disabled={opening}
+                onClick={async () => {
+                  setOpening(true);
+                  try {
+                    await login();
+                  } finally {
+                    setOpening(false);
+                  }
+                }}
+              >
+                {opening ? "Signing in…" : "Continue with Google"}
+              </button>
+            )
           )}
           {error && <p role="alert">{error}</p>}
           <p className={styles.muted}>For the Premier editorial team.</p>
@@ -272,13 +316,11 @@ function Desk({ user }: { user: User }) {
       const { url } = await api("upload", { method: "POST", body: form });
       if (imageTarget === "cover") update({ cover: url, coverAlt: imageAlt });
       else {
-        formRef.current
-          ?.querySelector(".tiptap")
-          ?.dispatchEvent(
-            new CustomEvent("premier-blog-image", {
-              detail: { url, alt: imageAlt },
-            }),
-          );
+        formRef.current?.querySelector(".tiptap")?.dispatchEvent(
+          new CustomEvent("premier-blog-image", {
+            detail: { url, alt: imageAlt },
+          }),
+        );
       }
       setImageTarget(null);
       setImageFile(null);

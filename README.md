@@ -1,53 +1,69 @@
-# Premier internal booking form
+# Premier Client Experience Desk
 
-The flow is: Google sign-in → booking form → saved confirmation.
+This is your existing internal Next.js app, updated with client profiles, single-booking PDF imports and an internal calendar. Your Google login, Firebase connection and blog editor are retained. No client photo is required.
 
-Only verified `@pitdrives.com` Google accounts can use the form. Server-side checks enforce this on every API call. Bookings are saved to the existing `bookings` collection in `pit-website-18883`, marked `source: internal-team`. There is no booking dashboard/list, no status editing, and no email integration. The public website's email code is unchanged.
+## Start here
 
-## Updating from the previous ZIP
-
-Extract this ZIP into a fresh folder rather than merging it into the old one, so removed API routes do not remain. Copy your already-populated `.env.local` into it. Do not overwrite that file with the example. `RESEND_API_KEY`, if already present, is unused and can be removed.
+1. Extract the ZIP into a new folder. Keep your current app as a backup.
+2. Copy your existing `.env.local` into this new folder. Keep the same Firebase settings. No new API key is required for PDFs or the calendar.
+3. Use Node.js 22.13+ (or Node 24). In the new folder run:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-## Firebase setup (same existing project)
+4. Open http://localhost:3000 and sign in with your company Google account.
+5. Create a client. Open the profile, choose a single-booking detailed manifest PDF, check the extracted details and pickup time zone, then save.
+6. Click Calendar. Open the booking to view the booking and client profile together. Imported bookings can be edited or marked completed/cancelled.
 
-1. Use the existing web config under Firebase Console → pit-website-18883 → Project settings → General → Your apps. No new Firebase project or web app is needed.
-2. In Authentication → Sign-in method, enable Google and select a support email. Leave any existing providers unchanged.
-3. In Authentication → Settings → Authorized domains, add `localhost` for local testing and your internal app's hostname when deployed. Keep existing domains.
-4. Use the existing project's Admin credentials in the server variables. Keep the current Firestore database and rules unchanged; do not deploy the rules or auth blockers from the original ZIP.
-5. Restart `npm run dev` after environment changes and test sign-in with your company Google account.
+When ready, copy the updated source, package.json, package-lock.json and scripts into your internal app repository. Keep its `.env.local` and existing Vercel environment variables. Deploy the INTERNAL app, not the public website. Run `npm ci` after copying. There are no new production environment variables.
 
-Required environment values:
+## What is included
 
-```dotenv
-NEXT_PUBLIC_FIREBASE_API_KEY=your_existing_apiKey
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_existing_authDomain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=pit-website-18883
-NEXT_PUBLIC_FIREBASE_APP_ID=your_existing_appId
-FIREBASE_PROJECT_ID=pit-website-18883
-FIREBASE_CLIENT_EMAIL=your_service_account_email
-FIREBASE_PRIVATE_KEY="your_private_key_with_\n_escapes"
-```
+- Home after login: searchable client directory, Add client, and a first-client empty state.
+- Profiles: full name, title, company, client-since month, compiled-by, automatic updated date, significant addresses, welcome preferences and standing arrangements.
+- PDF import: one booking only, original text-based Reservations Manifest - Detailed View layout. 8 MB / 10-page limit. Multi-booking PDFs, scans and unrecognized layouts are rejected explicitly.
+- Editable extracted passenger, contact, pickup/drop-off, date/time, passenger count, chauffeur, vehicle, plate, account, payment, trip type, flight and notes fields.
+- PDFs are parsed locally in the browser with PDF.js. Only the confirmed structured booking is sent to your server. No raw PDF storage, OCR, paid AI, Cloud Functions or Firebase Storage dependency is added.
+- Shared month calendar with daily filters and a list below it; calendar navigation from every workspace page and from the authenticated blog editor.
+- Duplicate reservation prevention across users, using the manifest reservation number. A repeat with identical data returns the saved record; changed data prompts you to edit the existing booking.
+- Version checks prevent one staff member silently overwriting another's changes.
+- Existing bookings with a YYYY-MM-DD `date` field appear on the calendar. Older bookings without a clientId show their booking details with a notice that no profile is linked. Imported records link to the current client profile, not a historical snapshot.
 
-The server credentials must belong to the same project as the web config. On Google hosting, Application Default Credentials may replace the service account email/key pair. Keep credentials out of source control. Add the optional `NEXT_PUBLIC_GEOAPIFY_API_KEY` for street/hotel suggestions; airport data is bundled, and manual location entry works too.
+## Firebase and data
 
-The server validates the Firebase ID token (including revocation), Google provider, verified email, and exact company domain. Outside Google accounts are signed out of this app and receive no booking access. Because this is a shared Firebase project, it does not deploy global authentication blocking functions; Firebase may still record an outside Google account in Auth before the app rejects it.
+Uses your existing Firebase project and Admin credentials. Profiles are stored in `clients`; imports use the existing `bookings` collection with `source: internal-manifest`. Collections are created on first save. All new API handlers verify the existing company Google identity, including verified email, exact pitdrives.com domain and token revocation. There is no new public data endpoint.
 
-## Saving
+Do not make Firestore rules public. These endpoints use the Admin SDK, so browser access to `clients` and `bookings` does not need to be enabled. Keep these collections private under your existing rules; if your project currently has a broad allow-all rule, that must be corrected before storing client information. Do not replace the shared project's rules wholesale, as it also serves the public website and blog.
 
-The form stores the public booking fields plus operational details, a reference, and staff attribution. It uses `status: new` and `timeBasis: pickup-local`. Retries of the same submitted payload reuse an idempotency key to avoid duplicate records. After a save, the user sees a confirmation and can create another booking. No list of public bookings is fetched or displayed.
+Queries use normal single-field indexes for `date` and `clientId`. If you disabled those indexes in your project, re-enable them. Calendar data is loaded by month; records are paginated internally so they are not silently truncated.
 
-This app itself sends no emails. If your Firebase project has any separately deployed Firestore-triggered notification functions, they operate independently; those would need to exclude `source: internal-team`. The supplied public API route sends its emails directly through Resend, and this app never calls that route.
+The app itself does not send booking emails. Any independently deployed Firestore notification trigger must exclude `source: internal-manifest` if you do not want notifications for imports. This imports existing reservation data into your internal records; it does not create or update reservations in Limo Anywhere and it does not sync Google Calendar.
 
-Saving is a booking record operation, not a live vehicle/chauffeur reservation or MyLimoBiz integration.
+## PDF interpretation
 
-## Checks and deployment
+The reader is designed for the supplied detailed reservations manifest. It uses text positions to separate Passenger, Account, Driver Info, Payment and Trip Info columns rather than merging them. Wrapped names, addresses, notes and additional passengers are retained. Always check extraction before saving. A changed report template may need a parser adjustment.
 
-Node.js 22+.
+The supplied PDF does not include a time zone. The form defaults to America/New_York and requires staff to confirm/change it. The calendar groups by pickup-local date and displays pickup-local time, not a converted UTC schedule. No trip duration is invented.
+
+Profiles are created and maintained manually; importing a booking does not overwrite the client's standing preferences or addresses.
+
+## Files changed
+
+- `src/components/workspace.tsx`: same login, new post-login directory/navigation.
+- `src/components/client-desk/`: directory, profiles, import form, calendar, booking panel and scoped styles.
+- `src/lib/client-desk/`: validation, PDF reader/parser, API helpers.
+- `src/app/clients/`, `src/app/calendar/`: new pages.
+- `src/app/api/clients/`, `src/app/api/journeys/`: authenticated profile and booking APIs.
+- `src/components/premier-blog/BlogAdmin.tsx`: Calendar link alongside logout.
+- `src/app/globals.css`: workspace navigation styles appended.
+- `scripts/copy-pdf-worker.mjs`: installs the same-version local PDF worker automatically.
+- package files: PDF.js and patched Next.js dependency; installation lock repaired.
+
+The old internal booking form and POST /api/bookings remain in the source for compatibility, but are no longer the post-login screen. Existing records are not deleted or migrated.
+
+## Verification
 
 ```bash
 npm run typecheck
@@ -55,4 +71,4 @@ npm test
 npm run build
 ```
 
-Deploy as a separate Next.js site with the same environment configuration and its hostname authorized in Firebase. Leave the public website unchanged. Actual Google login and Firestore writes require your credentials and must be verified on your project.
+Live Firebase sign-in and database writes require your environment and must be checked locally before deployment. No real client or booking was created during development. See VERIFICATION.md for the exact completed checks and limits.

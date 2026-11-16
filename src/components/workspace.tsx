@@ -1,8 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, LogOut, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, LogOut, ShieldCheck } from "lucide-react";
 import { AuthProvider, useTeam } from "./auth";
-import BookingForm from "./booking-form";
+import Link from "next/link";
+import {
+  ClientDirectory,
+  ClientDetail,
+  NewClient,
+  CalendarView,
+} from "./client-desk/desk";
+import JournalLink from "./premier-blog/JournalLink";
 import Image from "next/image";
 
 function Brand() {
@@ -103,28 +110,35 @@ function Login() {
   );
 }
 
-function BookingPage() {
+type WorkspaceProps = {
+  view?: "clients" | "new" | "detail" | "calendar";
+  clientId?: string;
+};
+function DeskPage({ view = "clients", clientId }: WorkspaceProps) {
   const { user, logout } = useTeam();
-  const [reference, setReference] = useState("");
   const [error, setError] = useState("");
-  const successRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (reference) {
-      successRef.current?.focus({ preventScroll: true });
-      successRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
-    }
-  }, [reference]);
   return (
     <div className="simple-workspace">
-      <header className="simple-header">
+      <header className="desk-header">
         <Brand />
-        <div className="account">
-          <div>
-            <strong>{user?.name}</strong>
-            <small>{user?.email}</small>
-          </div>
+        <nav aria-label="Workspace navigation">
+          <Link
+            href="/"
+            aria-current={view !== "calendar" ? "page" : undefined}
+          >
+            Clients
+          </Link>
+          <Link
+            href="/calendar"
+            aria-current={view === "calendar" ? "page" : undefined}
+          >
+            Calendar
+          </Link>
+          <JournalLink />
+        </nav>
+        <div className="desk-account">
+          <span>{user?.name}</span>
           <button
-            type="button"
             className="icon-button"
             aria-label="Sign out"
             onClick={async () => {
@@ -139,58 +153,39 @@ function BookingPage() {
           </button>
         </div>
       </header>
-      <main className="simple-main">
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {reference ? (
-          <div
-            className="panel booking-confirmation"
-            ref={successRef}
-            tabIndex={-1}
-            role="status"
-          >
-            <CheckCircle2 size={40} />
-            <p className="eyebrow">BOOKING SAVED</p>
-            <h1>Your booking has been saved.</h1>
-            <p>
-              Reference: <strong>{reference}</strong>
-            </p>
-            <button
-              type="button"
-              className="button primary"
-              onClick={() => setReference("")}
-            >
-              Create another booking
-              <ArrowRight size={17} />
-            </button>
-          </div>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <main>
+        {view === "new" ? (
+          <NewClient />
+        ) : view === "detail" && clientId ? (
+          <ClientDetail id={clientId} />
+        ) : view === "calendar" ? (
+          <CalendarView />
         ) : (
-          <>
-            <div className="page-heading">
-              <div>
-                <p className="eyebrow">PREMIER / INTERNAL BOOKING</p>
-                <h1>A journey, thoughtfully arranged.</h1>
-                <p>Enter the journey and passenger details below.</p>
-              </div>
-            </div>
-            <BookingForm onSaved={setReference} />
-          </>
+          <ClientDirectory />
         )}
       </main>
     </div>
   );
 }
-function Gate() {
-  const { user } = useTeam();
-  return user ? <BookingPage /> : <Login />;
+function Gate(props: WorkspaceProps) {
+  const { user, loading } = useTeam();
+  if (loading)
+    return (
+      <div className="desk-auth-loading" role="status">
+        Opening your workspace…
+      </div>
+    );
+  return user ? <DeskPage {...props} /> : <Login />;
 }
-export default function Workspace() {
+export default function Workspace(props: WorkspaceProps) {
   return (
     <AuthProvider>
-      <Gate />
+      <Gate {...props} />
     </AuthProvider>
   );
 }
