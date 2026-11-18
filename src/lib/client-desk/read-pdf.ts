@@ -1,8 +1,8 @@
 import { parseManifests, type PdfPage } from "./manifest";
 export async function readBookingPdf(file: File) {
   if (!/\.pdf$/i.test(file.name)) throw Error("Choose a PDF file.");
-  if (file.size > 8 * 1024 * 1024)
-    throw Error("Choose a PDF smaller than 8 MB.");
+  if (file.size > 20 * 1024 * 1024)
+    throw Error("Choose a PDF smaller than 20 MB.");
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-worker/pdf.worker.min.mjs";
   const task = pdfjs.getDocument({
@@ -10,8 +10,8 @@ export async function readBookingPdf(file: File) {
   });
   try {
     const pdf = await task.promise;
-    if (pdf.numPages > 10)
-      throw Error("Please export a report of 10 pages or fewer.");
+    if (pdf.numPages > 100)
+      throw Error("Please export a report of 100 pages or fewer.");
     const pages: PdfPage[] = [];
     for (let n = 1; n <= pdf.numPages; n++) {
       const page = await pdf.getPage(n);

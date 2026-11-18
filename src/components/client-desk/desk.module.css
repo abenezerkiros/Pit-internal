@@ -796,3 +796,54 @@
     padding: 20px 16px;
   }
 }
+
+.importReservation {
+  border: 1px solid #ddd8c9;
+  background: #fffdf8;
+  border-radius: 10px;
+  margin: 14px 0;
+  overflow: hidden;
+}
+.importReservation summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+}
+.importReservation summary > span:first-child {
+  min-width: 0;
+}
+.importReservation summary small {
+  display: block;
+  margin-top: 8px;
+  color: #747969;
+  overflow-wrap: anywhere;
+}
+.importReservation summary strong {
+  font-weight: 500;
+}
+.importReservation summary .status {
+  flex-shrink: 0;
+}
+.importReservation[open] summary {
+  border-bottom: 1px solid #e6e1d5;
+}
+.importReservation fieldset {
+  padding: 20px;
+}
+.importReservation summary:focus-visible {
+  outline: 2px solid #957e5e;
+  outline-offset: -3px;
+}
+@media (max-width: 600px) {
+  .importReservation summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .importReservation fieldset {
+    padding: 16px;
+  }
+}

@@ -1,26 +1,37 @@
 import "server-only";
 import { z } from "zod";
 import { HttpError } from "@/lib/http";
+
 export function parse<T>(schema: z.ZodType<T>, value: unknown): T {
-  const r = schema.safeParse(value);
-  if (!r.success)
+  const result = schema.safeParse(value);
+
+  if (!result.success) {
     throw new HttpError(
       400,
-      r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+      result.error.issues
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+        .join("; "),
     );
-  return r.data;
+  }
+
+  return result.data;
 }
+
 export function validId(id: string) {
-  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id))
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) {
     throw new HttpError(400, "Invalid record ID.");
+  }
+
   return id;
 }
+
 export function serialize(doc: FirebaseFirestore.DocumentSnapshot) {
-  const d = doc.data() || {};
+  const data = doc.data() || {};
+
   return {
-    ...d,
+    ...data,
     id: doc.id,
-    createdAt: d.createdAt?.toDate?.().toISOString() || "",
-    updatedAt: d.updatedAt?.toDate?.().toISOString() || "",
+    createdAt: data.createdAt?.toDate?.().toISOString() || "",
+    updatedAt: data.updatedAt?.toDate?.().toISOString() || "",
   };
 }

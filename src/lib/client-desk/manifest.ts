@@ -52,6 +52,19 @@ export function parseManifests(pages: PdfPage[]): ParsedBooking[] {
     throw Error(
       "No booking found. Upload the original Reservations Manifest PDF, not a scanned image.",
     );
+  const declared = pages
+    .flatMap(rows)
+    .map((r) => r.text)
+    .join(" ")
+    .match(/Showing\s+\d+\s+to\s+(\d+)\s+of\s+\d+\s+trips/i);
+  if (declared && Number(declared[1]) !== starts.length)
+    throw Error(
+      "The report lists " +
+        declared[1] +
+        " trips but " +
+        starts.length +
+        " were readable. Export the complete text-based report again.",
+    );
   return starts.map((start, index) => {
     try {
       return parseTrip(all.slice(start, starts[index + 1]));
@@ -93,7 +106,7 @@ function parseTrip(trip: Row[]): ParsedBooking {
     .join("\n");
   booking.pickup =
     before
-      .match(/(?:^|\n)PU:\s*([\s\S]*?)(?=\nDO:|$)/)?.[1]
+      .match(/(?:^|\n)PU:\s*([\s\S]*?)(?=\nDO:|\nStops\/Waits:|$)/)?.[1]
       ?.replace(/\n/g, " ")
       .trim() || "";
   booking.dropoff =
@@ -104,6 +117,19 @@ function parseTrip(trip: Row[]): ParsedBooking {
       ?.replace(/\n/g, " ")
       .trim() || "";
   booking.notes = before.match(/(?:^|\n)Notes:\s*([\s\S]*)/)?.[1]?.trim() || "";
+  const stops = before
+    .match(/(?:^|\n)Stops\/Waits:\s*([\s\S]*?)(?=\nDO:|$)/)?.[1]
+    ?.trim();
+  const endTime = trip[0].text.match(
+    /Drop Off At:\s*\d{1,2}:\d{2}\s*(?:AM|PM)/i,
+  )?.[0];
+  booking.notes = [
+    endTime,
+    stops ? "Stops/Waits:\n" + stops : "",
+    booking.notes,
+  ]
+    .filter(Boolean)
+    .join("\n");
   const header = trip[headerIndex];
   const labels = [
     "Passenger",
@@ -144,7 +170,10 @@ function parseTrip(trip: Row[]): ParsedBooking {
     /(?:\+\d[\d\s.-]*|\(\d{3}\)\s*\d{3}[-. ]\d{4}|\d{3}[-. ]\d{3}[-. ]\d{4})/;
   const nameRows: string[] = [];
   for (const row of cols[0]) {
-    if (phonePattern.test(row) || /\d+ passengers?|Child Seats:/i.test(row))
+    if (
+      phonePattern.test(row) ||
+      /\d+ passengers?|Child Seats:|No Pass Phone/i.test(row)
+    )
       break;
     nameRows.push(row);
   }
@@ -160,13 +189,19 @@ function parseTrip(trip: Row[]): ParsedBooking {
   booking.account = cols[1].join("\n");
   booking.payment = cols[3].join("\n");
   booking.service = cols[4].join(" · ");
-  booking.chauffeur = cols[2][0] || "";
+  booking.chauffeur = /^No Driver Name$/i.test(cols[2][0] || "")
+    ? ""
+    : cols[2][0] || "";
   booking.chauffeurPhone = cols[2].join(" ").match(phonePattern)?.[0] || "";
   booking.plate =
     cols[2].find((r) => /^LP:/.test(r))?.replace(/^LP:\s*/, "") || "";
   booking.vehicle = cols[2]
     .slice(1)
-    .filter((r) => !phonePattern.test(r) && !/^LP:/.test(r))
+    .filter(
+      (r) =>
+        !phonePattern.test(r) &&
+        !/^LP:|^No Driver Phone$|^No Car Selected$/i.test(r),
+    )
     .join(" · ");
   if (extraIndex >= 0)
     booking.additionalPassengers = trip

@@ -63,10 +63,16 @@ export async function POST(request: Request) {
       .digest("hex");
     const duplicate = await db().runTransaction(async (tx) => {
       const [client, existing] = await Promise.all([
-        tx.get(db().collection("clients").doc(input.clientId)),
+        input.clientId
+          ? tx.get(db().collection("clients").doc(input.clientId))
+          : Promise.resolve(null),
         tx.get(ref),
       ]);
-      if (!client.exists) throw new HttpError(404, "Client not found.");
+      if (input.clientId && !client?.exists)
+        throw new HttpError(
+          404,
+          "Client not found. Refresh the import to match profiles again.",
+        );
       if (existing.exists) {
         if (existing.get("payloadHash") !== payloadHash)
           throw new HttpError(

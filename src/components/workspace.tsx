@@ -8,6 +8,7 @@ import {
   ClientDetail,
   NewClient,
   CalendarView,
+  BookingsPage,
 } from "./client-desk/desk";
 import JournalLink from "./premier-blog/JournalLink";
 import Image from "next/image";
@@ -111,7 +112,7 @@ function Login() {
 }
 
 type WorkspaceProps = {
-  view?: "clients" | "new" | "detail" | "calendar";
+  view?: "clients" | "new" | "detail" | "calendar" | "bookings";
   clientId?: string;
 };
 function DeskPage({ view = "clients", clientId }: WorkspaceProps) {
@@ -124,7 +125,9 @@ function DeskPage({ view = "clients", clientId }: WorkspaceProps) {
         <nav aria-label="Workspace navigation">
           <Link
             href="/"
-            aria-current={view !== "calendar" ? "page" : undefined}
+            aria-current={
+              ["clients", "new", "detail"].includes(view) ? "page" : undefined
+            }
           >
             Clients
           </Link>
@@ -133,6 +136,12 @@ function DeskPage({ view = "clients", clientId }: WorkspaceProps) {
             aria-current={view === "calendar" ? "page" : undefined}
           >
             Calendar
+          </Link>
+          <Link
+            href="/bookings"
+            aria-current={view === "bookings" ? "page" : undefined}
+          >
+            Bookings
           </Link>
           <JournalLink />
         </nav>
@@ -163,6 +172,8 @@ function DeskPage({ view = "clients", clientId }: WorkspaceProps) {
           <NewClient />
         ) : view === "detail" && clientId ? (
           <ClientDetail id={clientId} />
+        ) : view === "bookings" ? (
+          <BookingsPage />
         ) : view === "calendar" ? (
           <CalendarView />
         ) : (

@@ -186,3 +186,30 @@ test("a booking continued onto the next page retains its fields", () => {
   assert.equal(parsed[0].booking.plate, "TEST");
   assert.equal(parsed[0].booking.passengers, 2);
 });
+
+test("report with a missing phone keeps the passenger name clean", () => {
+  const words = manifest();
+  words.find((w) => w.str === "(202) 555-0100")!.str = "No Pass Phone";
+  assert.equal(parseManifests([words])[0].booking.traveler, "Alex Example");
+  assert.equal(parseManifests([words])[0].booking.phone, "");
+});
+test("report count mismatch blocks an incomplete import", () => {
+  assert.throws(() => parseManifests([[
+    {str:"Showing 1 to 40 of 40 trips",x:40,y:750}, ...manifest()
+  ]]), /40 trips but 1/);
+});
+test("stops and end time are preserved in notes", () => {
+  const words = manifest();
+  words[0].str += " Drop Off At: 05:00 PM";
+  words.push({str:"Stops/Waits:",x:40,y:665},{str:"1. ST: Example Venue",x:40,y:660});
+  const { booking } = parseManifests([words])[0];
+  assert.equal(booking.pickup, "Example Airport, Flt# 123");
+  assert.match(booking.notes, /Drop Off At: 05:00 PM/);
+  assert.match(booking.notes, /Example Venue/);
+  assert.match(booking.notes, /Meet in lobby/);
+});
+test("bookings without a linked profile validate normally", () => {
+  const {booking}=parseManifests([manifest()])[0];
+  assert.equal(journeySchema.safeParse({...booking, clientId:""}).success,true);
+  assert.equal(journeySchema.safeParse({...booking, clientId:"../bad"}).success,false);
+});

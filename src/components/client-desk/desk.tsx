@@ -35,6 +35,7 @@ import {
   type JourneyInput,
 } from "@/lib/client-desk/model";
 import styles from "./desk.module.css";
+import { matchClient } from "@/lib/client-desk/match-client";
 const errText = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please try again.";
 const shortDate = (v: string) =>
@@ -493,13 +494,6 @@ export function ClientDetail({ id }: { id: string }) {
                 <ProfileContent client={client} />
               </div>
             )}
-            <ImportBooking
-              client={client}
-              onSaved={(bookingId) => {
-                setTick((n) => n + 1);
-                setSelected(bookingId);
-              }}
-            />
             <div className={styles.sectionBar}>
               <h2>Client journeys</h2>
               <Link href="/calendar" className={styles.back}>
@@ -590,21 +584,47 @@ function BookingFields({
     </div>
   );
 }
+export function BookingsPage() {
+  const [selected, setSelected] = useState<string | null>(null);
+  return (
+    <div className={styles.desk}>
+      <div className={styles.heading}>
+        <div>
+          <p className="eyebrow">PREMIER / RESERVATIONS</p>
+          <h1>
+            Every booking.
+            <br />
+            <em>One place.</em>
+          </h1>
+          <p>
+            Import a report for all your passengers. We connect the profiles you
+            already know.
+          </p>
+        </div>
+        <Link className="button primary" href="/calendar">
+          <CalendarDays size={17} /> View calendar
+        </Link>
+      </div>
+      <ImportBooking onSaved={setSelected} />
+      {selected && (
+        <BookingPanel
+          id={selected}
+          onClose={() => setSelected(null)}
+          onUpdated={() => {}}
+        />
+      )}
+    </div>
+  );
+}
 type ImportDraft = {
   value: JourneyInput;
   warnings: string[];
   savedId?: string;
   error?: string;
 };
-function ImportBooking({
-  client,
-  onSaved,
-}: {
-  client: Client;
-  onSaved: (id: string) => void;
-}) {
+function ImportBooking({ onSaved }: { onSaved: (id: string) => void }) {
   const [drafts, setDrafts] = useState<ImportDraft[]>([]);
-  const [clients, setClients] = useState<Client[]>([client]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
@@ -652,7 +672,10 @@ function ImportBooking({
       setClients(all.sort((a, b) => a.fullName.localeCompare(b.fullName)));
       setDrafts(
         bookings.map((item) => ({
-          value: { ...item.booking, clientId: client.id },
+          value: {
+            ...item.booking,
+            clientId: matchClient(item.booking.traveler, all).clientId,
+          },
           warnings: item.warnings,
         })),
       );
@@ -663,6 +686,10 @@ function ImportBooking({
     }
   }
   function update(index: number, value: JourneyInput) {
+    value = {
+      ...value,
+      clientId: matchClient(value.traveler, clients).clientId,
+    };
     setConfirmed(false);
     setDrafts((items) =>
       items.map((item, i) =>
@@ -767,12 +794,12 @@ function ImportBooking({
         />
         <span>{busy ? "Processing…" : fileName || "Choose a booking PDF"}</span>
         <small>
-          PDF · up to 8 MB · 10 pages maximum · text-based detailed manifest
+          PDF · up to 20 MB · 100 pages maximum · text-based detailed manifest
         </small>
       </label>
       <ErrorNote message={error} />
       {drafts.length > 0 && (
-        <form onSubmit={save} className={styles.importForm}>
+        <form noValidate onSubmit={save} className={styles.importForm}>
           <p role="status">
             <strong>
               {drafts.length} bookings found · {saved.length} saved ·{" "}
@@ -780,61 +807,62 @@ function ImportBooking({
             </strong>
           </p>
           <p>
-            Bookings initially link to {client.fullName}. Select a different
-            client for any journey that belongs to someone else.
+            Matching client profiles are linked automatically by passenger name.
+            Unmatched bookings are saved normally without a client profile.
+            Expand any reservation to review or correct its details.
           </p>
-          {drafts.map((item, index) => (
-            <fieldset key={index} disabled={busy || Boolean(item.savedId)}>
-              <legend>
-                <strong>
-                  Booking {index + 1} ·{" "}
-                  {item.value.reservationId || "Check reservation number"}
-                  {item.savedId ? " · Saved to calendar" : ""}
-                </strong>
-              </legend>
-              {item.savedId ? (
-                <p>
-                  {item.value.traveler} · {shortDate(item.value.date)} ·{" "}
-                  {item.value.time}
-                </p>
-              ) : (
-                <>
-                  <div className={styles.notice}>
-                    <b>Check before saving</b>
+          {drafts.map((item, index) => {
+            const match = matchClient(item.value.traveler, clients);
+            const linked = clients.find((c) => c.id === item.value.clientId);
+            return (
+              <details className={styles.importReservation} key={index}>
+                <summary>
+                  <span>
+                    <strong>
+                      {item.value.reservationId || "Booking " + (index + 1)} ·{" "}
+                      {item.value.traveler || "Passenger not found"}
+                    </strong>
+                    <small>
+                      {shortDate(item.value.date)} · {item.value.time} ·{" "}
+                      {item.value.pickup}
+                    </small>
+                  </span>
+                  <span className={styles.status}>
+                    {item.savedId
+                      ? "Saved"
+                      : item.error
+                        ? "Needs attention"
+                        : linked
+                          ? "Profile matched"
+                          : match.status === "ambiguous"
+                            ? "Multiple matches · no link"
+                            : "No profile · booking only"}
+                  </span>
+                </summary>
+                <fieldset disabled={busy || Boolean(item.savedId)}>
+                  <p className={styles.notice}>
+                    {linked
+                      ? "Linked client: " + linked.fullName
+                      : match.status === "ambiguous"
+                        ? "Several client profiles have this name. This booking will be saved without a link."
+                        : "No matching client profile. This booking will still be saved to the calendar."}
+                  </p>
+                  <ErrorNote message={item.error || ""} />
+                  {!item.savedId && (
                     <ul>
                       {item.warnings.map((w) => (
                         <li key={w}>{w}</li>
                       ))}
                     </ul>
-                  </div>
-                  <ErrorNote message={item.error || ""} />
-                  <Field label="Linked client profile">
-                    <select
-                      required
-                      value={item.value.clientId}
-                      onChange={(e) =>
-                        update(index, {
-                          ...item.value,
-                          clientId: e.target.value,
-                        })
-                      }
-                    >
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.fullName}
-                          {c.company ? " · " + c.company : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  )}
                   <BookingFields
                     value={item.value}
                     set={(v) => update(index, v)}
                   />
-                </>
-              )}
-            </fieldset>
-          ))}
+                </fieldset>
+              </details>
+            );
+          })}
           {pending.length > 0 && (
             <label className={styles.confirm}>
               <input
@@ -981,8 +1009,8 @@ export function CalendarView() {
           </h1>
           <p>Pickup times are shown in each booking’s local time zone.</p>
         </div>
-        <Link href="/" className="button primary">
-          <Plus size={16} /> Book for a client
+        <Link href="/bookings" className="button primary">
+          <Plus size={16} /> Import bookings
         </Link>
       </div>
       <div className={styles.calendarToolbar}>
@@ -1332,7 +1360,10 @@ function BookingPanel({
                 {client ? (
                   <ProfileContent client={client} />
                 ) : (
-                  <p>No client profile is linked to this older booking.</p>
+                  <p>
+                    No client profile is linked to this booking. The booking is
+                    saved independently.
+                  </p>
                 )}
               </section>
             </div>

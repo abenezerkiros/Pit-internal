@@ -40,7 +40,10 @@ export const emptyClient: ClientInput = {
 };
 export const journeySchema = z
   .object({
-    clientId: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),
+    clientId: z.union([
+      z.literal(""),
+      z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),
+    ]),
     reservationId: z
       .string()
       .trim()
